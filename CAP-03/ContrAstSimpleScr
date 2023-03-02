@@ -1,0 +1,46 @@
+using UnityEngine;
+
+public class ContrAstSimpleScr : MonoBehaviour
+{
+    Camera cam;//cámara del juego
+    public int NIVEL=0;//primer nivel.
+    public GameObject AsteroidesPadre;//Objeto que agrupará todos los asteroides en la jerarquía
+                                      //para tener mejor organización y poder contarlos luego con más facilidad.
+    public InstanciadorDeAsteroidesScr GEN;//Asignar en el inspector el script correspondiente.
+    public static ContrAstSimpleScr CONTROL;//Declaración de una variable pública y estática de tipo
+    // ContrAstSimpleScr llamada "CONTROL" que se usará para acceder a la instancia de este controlador
+    // desde cualquier otro script en el proyecto.
+    [HideInInspector]
+    public Rect rect;//Rectangulo del tamaño de la cam. que delimitará el área de juego.
+    LineRenderer borde;//Línea que representará visualmente el rectángulo de arriba "rect".
+    void Awake()
+    {
+        // Se asigna la instancia actual de este controlador a la variable estática "CONTROL",
+        // lo que permite acceder a ella desde cualquier otro script en el proyecto.
+        CONTROL=this;
+        //asignación de la cámara principal a la variable cam
+        cam=Camera.main;
+        //calcula los límites de la pantalla y los asigna a la variable bordesDePantalla
+        Vector2 bordesDePantalla= cam.ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
+        //crea un rectángulo con los límites de la pantalla y lo asigna a la variable rect
+        rect = new Rect(-bordesDePantalla.x, -bordesDePantalla.y, bordesDePantalla.x*2, bordesDePantalla.y*2);
+        //Dibujamos el rectángulo con LineRenderer:
+        borde=GetComponent<LineRenderer>();
+        DibujarContorno();
+    }
+    void Start()
+    {
+        //Al iniciar el juego, instanciará asteroides en los bordes de 
+        //la cámara principal (la cantidad aumenta con "NIVEL").
+        GEN.InstanciarAsteroides();
+    }
+    void DibujarContorno()
+    {
+        borde.positionCount=5;//El primero será igual al último para cerrar la línea.
+        borde.SetPositions(new Vector3[] {  new Vector2(rect.xMin,rect.yMin),
+                                            new Vector2(rect.xMin,rect.yMax),
+                                            new Vector2(rect.xMax,rect.yMax),
+                                            new Vector2(rect.xMax,rect.yMin),
+                                            new Vector2(rect.xMin,rect.yMin)});
+    }
+}
