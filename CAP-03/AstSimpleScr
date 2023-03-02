@@ -1,0 +1,144 @@
+using UnityEngine;
+using System.Collections;
+
+public class AstSimpleScr : MonoBehaviour
+{
+    [HideInInspector]//Oculta en el inspector la siguiente línea.
+    public int generacion=0;//Generación 0 será uno grande, 1 mediano, 2 pequeño.(se asigna automáticamente)
+    float tiempoCambio = 0.2f;//Tiempo que dura su sprite blanco cuando recibe daño.
+    private Coroutine cambioSpr;//Aquí guardaremos la corutina de cambio de sprite a color blanco, para detenerla
+                                //y agregarle tiempo si vuelve a tocar un disparo.
+    public int vidaMaxDelMasGrande=11;//En funcion de la vida de los ast más grandes, se ajusta automáticamente
+                                    //la vida de los pequeños en función de su tamaño (más chicos=menos vida).
+
+    [HideInInspector]//Oculta en el inspector la siguiente línea.
+    public int vida;//Cantidad de disparos que aguantará;(se asigna automáticamente)
+
+    [HideInInspector]//Oculta en el inspector la siguiente línea.
+    public Sprite blanco;//Sprite que usará al ser golpeado.(se asigna automáticamente)
+
+    [HideInInspector]//Oculta en el inspector la siguiente línea.
+    public Sprite original;//sprite original.(se asigna automáticamente)
+    Rigidbody2D RB;//RB, será el propio Rigidbody2D del objeto (se asigna en void Start())
+    SpriteRenderer SPR;//spriteRenderer de este objeto.
+    PolygonCollider2D POL;//Collider del objeto. necesario para separarse de otros objetos que aparecen dentro suyo.
+
+    void Start()
+    {
+        RB=GetComponent<Rigidbody2D>();//RB será el propio Rigidbody2D
+        SPR=GetComponent<SpriteRenderer>();//SPR será el propio SpriteRenderer.
+        POL=GetComponent<PolygonCollider2D>();//Collider del asteroide.
+        original=SPR.sprite;//su sprite se asignará en "original".
+        vida=vidaMaxDelMasGrande/(generacion+1);//la vida será menor cuando sean más chicos 
+    }
+    void OnTriggerEnter2D(Collider2D other)//este método se ejecuta cuando el collider del objeto detecta que
+                                           //ha tocado a otro collider con su casilla istrigger activada. 
+    {
+        //Si el asteroide detecta el trigger de un disparo:
+        if(other.CompareTag("shoot"))
+        {   //Destruímos el disparo:
+            Destroy(other.gameObject);
+            vida-=1;//Restamos vida.  
+            //Vemos si se debe destruír el objeto:
+            probarSiSeDestruye();
+            //si no es el caso, se asigna en el SpriteRenderer el Sprite blanco por "tiempoCambio":
+            if (cambioSpr != null) {
+                StopCoroutine(cambioSpr);//si la corutina ya se está ejecutando se detiene, para reiniciar el tiempo.
+                cambioSpr = null;
+            }
+            //inicia la corutina de cambio de sprite, y la guarda en "cambioSpr".
+            cambioSpr= StartCoroutine(CambiarSpriteTemporalmente());
+        }
+    }
+    void OnCollisionStay2D(Collision2D col)
+    {
+        if(col.transform.CompareTag("asteroide"))//Si detecta colisión
+        {       
+                //Guardamos el collider para la siguiente comprobación:
+                PolygonCollider2D POLcol = col.gameObject.GetComponent<PolygonCollider2D>();
+
+                // Comprobar si los colliders se superponen.
+                if (POL.bounds.Intersects(POLcol.bounds))
+                {
+                    // Separar los objetos aplicando fuerzas opuestas.
+                    Vector2 offset = transform.position - col.gameObject.transform.position;
+                    RB.AddForce(offset, ForceMode2D.Impulse);
+                }
+        }
+                
+    }
+    void probarSiSeDestruye()
+    {
+        if(vida==0)
+                {
+                    if(generacion<2)
+                    {
+                        //si el asteroide no es el más pequeño:
+                        //instanciaremos dos asteroides más pequeños:
+                        Vector2[]puntos=calcularPosicionHijos();//Calcula dos posiciones adecuadas.
+                        Vector2[]velocidades=calcularVelocidadHijos(puntos);//Calcula dos velocidades adecuadas.
+                        for(int i=0;i<2;i++)
+                        {
+                            //Llama al controlador para que genere los dos asteroides más chicos.    
+                            ContrAstSimpleScr.CONTROL.GEN.
+                            instanciarIndividual(puntos[i],velocidades[i],generacion+1);
+                        }
+                    }
+                    //Si el asteroide es el más pequeño:
+                    //Destruímos el asteroide:
+                    Destroy(gameObject);
+                }
+    }
+    IEnumerator CambiarSpriteTemporalmente()
+    {
+        //Se asigna en el SpriteRenderer el Sprite blanco por "tiempoCambio":
+        SPR.sprite = blanco;
+        yield return new WaitForSeconds(tiempoCambio);
+        SPR.sprite = original;
+    }
+    Vector2[] calcularPosicionHijos()
+    {
+        //para determinar dos posiciones razonables, primero calculamos el tamaño del sprite del asteroide.
+        SpriteRenderer spr=GetComponent<SpriteRenderer>();//para eso necesitamos acceder a su spriterenderer
+        float width = spr.bounds.size.x;//ancho del sprite del asteroide
+        float height = spr.bounds.size.y;//alto del sprite del asteroide
+        float minDimension = Mathf.Min(width, height);//el mínimo entre el ancho y el alto.
+        float radius=minDimension/3;//distancia del centro a la que aparecerán los asteroides.
+
+        //calculamos dos puntos para instanciar las partes separados por 135º como mínimo:
+        float angle=135; // Ángulo mínimo entre los puntos generados
+        float randomAngle1 = Random.Range(0, 360);
+        float randomAngle2 = Random.Range(randomAngle1 + angle, randomAngle1 + angle + 180);
+        Vector2 pos=transform.position;
+        Vector2 point1 = pos + new Vector2(radius * Mathf.Cos(randomAngle1 * Mathf.Deg2Rad),
+                                           radius * Mathf.Sin(randomAngle1 * Mathf.Deg2Rad));
+        Vector2 point2 = pos + new Vector2(radius * Mathf.Cos(randomAngle2 * Mathf.Deg2Rad), 
+                                           radius * Mathf.Sin(randomAngle2 * Mathf.Deg2Rad));
+        Vector2[] posiciones = new Vector2[] { point1, point2};
+        return posiciones;//Devuelve las dos posiciones calculadas dentro de un array.
+    }
+    Vector2[] calcularVelocidadHijos(Vector2[] puntos)
+    {
+        // Almacenar la velocidad del Rigidbody en una variable local
+        Vector2 velocidadPadre = RB.velocity;
+
+        // Calcular la dirección normalizada para el punto 0
+        Vector2 direccion0 = (puntos[0] - (Vector2)transform.position).normalized;
+
+        // Calcular la dirección normalizada para el punto 1
+        Vector2 direccion1 = (puntos[1] - (Vector2)transform.position).normalized;
+
+        // Calcular las velocidades de los hijos utilizando las direcciones normalizadas y la velocidad del padre
+        Vector2 velocidadHijo1 = velocidadPadre + direccion0 * Random.Range(0f, 7f);
+        Vector2 velocidadHijo2 = velocidadPadre + direccion1 * Random.Range(0f, 7f);
+
+        // Devolver las dos velocidades calculadas dentro de un array
+        return new Vector2[] { velocidadHijo1, velocidadHijo2 };
+    }
+    private void OnDestroy()
+    //Cuando el objeto se destruye: 
+    {
+        //detiene las corutinas porque ya no son necesarias.
+        StopAllCoroutines();
+    }
+}
