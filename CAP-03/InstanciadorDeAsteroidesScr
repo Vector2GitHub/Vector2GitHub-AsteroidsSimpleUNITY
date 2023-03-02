@@ -1,0 +1,247 @@
+using System.Collections.Generic;
+using UnityEngine;
+public class InstanciadorDeAsteroidesScr : MonoBehaviour
+//Este script se encarga de todo lo relacionado con instanciar asteroides.
+{
+  //declaración de variables
+  
+  public GameObject Asteroide;//Asignar en el inspector el prefab del asteroide aquí.
+  public float velocidadMaxDeInicio=4;//Límite de velocidad inicial de los asteroides 
+                                        //(aumentará muy levemente por nivel).
+  Sprite[][] todosLosSprites;//Array de arrays de sprites, para acceder a ellos más fácilmente.
+  Sprite[][] todosLosSpritesB;//Array de arrays de sprites blancos, para acceder a ellos más fácilmente. 
+                            //Tienen que estar en el mismo orden que "Sprite[][] todosLosSprites" 
+  public Sprite[] SpritesGrandesAst;//sprites de asteroides grandes.
+  public Sprite[] SpritesGrandesAstB;//sprites de asteroides grandes blancos.
+  public Sprite[] SpritesMedianosAst;//sprites de asteroides Medianos.
+  public Sprite[] SpritesMedianosAstB;//sprites de asteroides Medianos blancos.
+  public Sprite[] SpritesPequeñosAst;//sprites de asteroides Pequeños.
+  public Sprite[] SpritesPequeñosAstB;//sprites de asteroides Pequeños blancos. 
+  
+  public int separacionMinimaEntreAsteroides=3;//Precaución: no hagas que sea menor a 1.
+  Rect rect;//Rectangulo del tamaño de la cam. en su borde aparecerán los asteroides al iniciar cada nivel.
+  
+void Awake()
+{
+    //Guardamos todos los arrays de sprites en el array de arrays de sprites.
+    todosLosSprites=new Sprite[3][];
+    todosLosSprites[0]=SpritesGrandesAst;
+    todosLosSprites[1]=SpritesMedianosAst;
+    todosLosSprites[2]=SpritesPequeñosAst;
+    //Guardamos todos los arrays de sprites BLANCOS en el array de arrays de sprites BLANCOS.
+    todosLosSpritesB=new Sprite[3][];
+    todosLosSpritesB[0]=SpritesGrandesAstB;
+    todosLosSpritesB[1]=SpritesMedianosAstB;
+    todosLosSpritesB[2]=SpritesPequeñosAstB;
+}
+void Start()
+{
+    rect=ContrAstSimpleScr.CONTROL.rect;
+    //Para evitar explosión de la PC, limitamos la distancia mínima entre asteroides:
+    //(Es necesario un límite mínimo mayor que 0 para no generar un bucle infinito).
+    //Un máximo muy muy grande, siempre generará al menos 1 asteroide. 
+    separacionMinimaEntreAsteroides= Mathf.Clamp(separacionMinimaEntreAsteroides,1,int.MaxValue);
+
+}
+
+public void InstanciarAsteroides()//primero calcula los puntos válidos (según la cantidad 
+                                //correspondiente al nivel) y luego instanciará un grupo de asteroides
+                                //en todos esos puntos
+{   
+    //En el nivel 0 generará 2 asteroides, y ese número irá aumentando +1 por nivel.
+    int cantidadDeAsteroides = 2+ContrAstSimpleScr.CONTROL.NIVEL;
+    Vector2[]puntos;
+    //Llama a la función que genera los puntos en el borde para instanciar asteroides.
+    puntos= GeneratePoints(cantidadDeAsteroides);
+
+    //instanciaremos un asteroide en cada punto calculado.
+    for (int i=0;i<puntos.Length;i++)
+    {   
+        //a ese asteroide le añadiremos una velocidad aleatoria al inicio.
+        float vx=Random.Range(-velocidadMaxDeInicio,velocidadMaxDeInicio);
+        float vy=Random.Range(-velocidadMaxDeInicio,velocidadMaxDeInicio);
+        Vector2 velocidad=new Vector2(vx*((ContrAstSimpleScr.CONTROL.NIVEL/10)+1)
+                                    ,vy*((ContrAstSimpleScr.CONTROL.NIVEL/10)+1));
+        //Lamamos a l método para que instancie el asteroide en el punto correspondiente,con la 
+        //velocidad calculada arriba, y el 0 significa que será de los grandes.                           
+        instanciarIndividual(puntos[i],velocidad,0);
+    }
+}
+public void instanciarIndividual(Vector2 posicion, Vector2 velocidad, int generacion)
+{
+        // Crea un objeto llamado "Asteroide"
+        GameObject AST=Instantiate(Asteroide,ContrAstSimpleScr.CONTROL.AsteroidesPadre.transform);
+        //Le indica su generación (Grande, Mediano o Pequeño)
+        AST.GetComponent<AstSimpleScr>().generacion=generacion;
+        // Ubica su posición en una posición aleatoria
+        AST.transform.position=posicion;
+        // Agrega un componente SpriteRenderer
+        SpriteRenderer SP= AST.AddComponent<SpriteRenderer>();
+        // Calcula un sprite aleatorio dentro de un grupo
+        int ransp=Random.Range(0,todosLosSprites[generacion].Length);
+        // Asigna la imagen que se usará como sprite
+        SP.sprite=todosLosSprites[generacion][ransp];
+        // Asigna la imagen que se usará como sprite
+        AST.GetComponent<AstSimpleScr>().blanco=todosLosSpritesB[generacion][ransp];
+        // Agrega un componente PolygonCollider2D
+        PolygonCollider2D POL= AST.AddComponent<PolygonCollider2D>();
+        // Achica los puntos del collider para que se ajuste al sprite
+        POL.points=AchicarCollider(POL);
+        // Agrega un componente Rigidbody2D
+        Rigidbody2D RB= AST.AddComponent<Rigidbody2D>();
+        // Establece la escala de la gravedad en 0
+        RB.gravityScale=0;
+        // Habilita la opción de calcular la masa automáticamente
+        RB.useAutoMass=true;
+        // Aplica una velocidad aleatoria a los asteroides. serán más rápidos en función del nivel
+        RB.velocity=velocidad;
+        RB.angularVelocity=Random.Range(-360f,360f);
+}
+
+Vector2[] AchicarCollider(PolygonCollider2D pol)/*como el polygon collider añadido automáticamente
+                                                 a un sprite random siempre es más grande que la imagen,
+                                                 lo achicaremos al 90% de su tamaño original*/
+{
+    // Crea un arreglo de vectores para almacenar los puntos modificados
+    Vector2[] P=new Vector2[pol.points.Length];
+    // Recorre los puntos del collider
+    for (int i = 0; i < pol.points.Length; i++)
+    {
+        // Obtiene el vector actual
+        Vector2 currentVector = pol.points[i];
+        // Modifica el tamaño del vector para ajustarse al sprite
+        currentVector = currentVector * 0.9f;//un 0.9f achicará el collider a un 90% del original. un 0.8 al 80% etc.
+        // Almacena el vector modificado en el arreglo
+        P[i]=currentVector;
+    }
+    // Devuelve el arreglo de vectores modificados
+    return P;
+}
+
+Vector2[] GeneratePoints(int n)//calculará "n" puntos posibles en los bordes de la pantalla, 
+                    //si "n" es mayor a la cantidad posible, disminuirá n, y avisará del cambio en la consola
+{   
+    // Obtiene todos los puntos posibles para ubicar los asteroides
+    Vector2[] posiblespuntos=GetPoints();
+    // Si el número de asteroides es mayor al número de puntos posibles, se establece el número de 
+    //asteroides igual al número de puntos posibles y se muestra una advertencia en el log
+    if(n>posiblespuntos.Length)
+    {   //n será igual a la cantidad de puntos posibles.
+        n=posiblespuntos.Length;
+        Debug.LogWarning("solo caben "+n+" en la pantalla!");//mensaje que avisa cuando se han solicitado más 
+                                                            //asteroides que los que caben en la pantalla
+    }
+    // Se eligen los puntos para ubicar los asteroides.
+    Vector2[]puntos= ChooseElements(posiblespuntos,n);
+
+    return puntos;//devuelve el array de puntos.
+}
+    Vector2[] ChooseElements(Vector2[] array, int n)//elegirá "n" puntos aleatorios entre todos los posibles (array).
+{
+    // Aquí se inicializa un arreglo llamado `points` con la cantidad de puntos especificados en `numberOfPoints`
+    Vector2[] points = new Vector2[n];
+    // Se inicializa un arreglo booleano llamado `used` con la longitud del arreglo original `array`
+    bool[] used = new bool[array.Length];
+    int i = 0;
+    // Mientras el contador `i` sea menor a la cantidad `count`
+    while (i < n)
+    {
+        // Se elige un índice aleatorio en el rango de la longitud del arreglo `array`
+        int index = UnityEngine.Random.Range(0, array.Length);
+        // Si el índice elegido no ha sido usado antes
+        if (!used[index])
+        {
+            // Se asigna el valor del índice elegido en `array` a `points` en la posición `i`
+            points[i] = array[index];
+            // Se marca el índice elegido como usado
+            used[index] = true;
+            // Se incrementa el contador `i`
+            i++;
+        }
+    }
+    return points;//devuelve el array de puntos elegidos entre todos los posibles.
+}
+
+// Método que devuelve un arreglo de puntos `Vector2`
+public Vector2[] GetPoints()//calculará la todos los puntos posibles, de modo que ninguno esté a menor distancia 
+                            //que "separacionMinimaEntreAsteroides" de cualquier otro.  
+{
+    // Se crea una lista llamada `points` de tipo `Vector2`
+    List<Vector2> points = new List<Vector2>();
+    // Se inicializa un contador `attempts` en 0
+    int attempts = 0;//cantidad de intentos.
+    // Mientras `attempts` sea menor a 1000
+        while (attempts < 1000)//para que el juego no quede congelado por un bucle infinito al 
+                               //no encontrar los puntos,solo se harán 1000 intentos. 
+        {
+            // Se llama al método `VectorAleatorioEnElBorde` para obtener un punto aleatorio en el borde
+            Vector2 point = VectorAleatorioEnElBorde();
+
+            // Se inicializa una variable booleana `tooClose` en `false`
+            bool tooClose = false;
+            // Se itera a través de todos los puntos en la lista `points`
+            foreach (Vector2 otherPoint in points)
+            {
+                // Si la distancia entre el punto actual y el punto en la lista es menor a `separacionEntreAsteroides`
+                if (Vector2.Distance(point, otherPoint) < separacionMinimaEntreAsteroides)
+                {
+                    // Se marca `tooClose` como `true`
+                    tooClose = true;
+                    // Se detiene la iteración
+                    break;
+                }
+            }
+
+            // Si `tooClose` es `false`
+            if (!tooClose)
+            {
+                // Se agrega el punto a la lista `points`
+                points.Add(point);
+                // Se reinicia el contador `attempts` a 0
+                attempts = 0;
+            }
+            else
+            {
+                // Si `tooClose` es `true`, se incrementa `attempts`
+                    attempts++;
+            }
+        }
+
+        //transforma la lista en array y entrega el array con todos los puntos posibles para instanciar asteroides.
+        return points.ToArray();
+    }
+    Vector2 VectorAleatorioEnElBorde()//Calculará un punto aleatorio ubicado en algún borde de la escena.
+    {
+        // Crea un número aleatorio entre 0 y 3, cada numero simboliza un borde de la escena.
+        int randomEdge = Random.Range(0, 4);
+        Vector2 randomPoint = Vector2.zero;
+
+        // Dependiendo del número generado anteriormente, se elige un borde y se crea un punto aleatorio en ese borde
+        switch (randomEdge)
+        {
+            case 0:
+                // Se redondea a un entero el resultado del punto generado aleatoriamente en el borde superior (yMax)
+                randomPoint = new Vector2(Mathf.RoundToInt(Random.Range(rect.xMin, rect.xMax)),
+                                          Mathf.RoundToInt(rect.yMax));
+                break;
+            case 1:
+                // Se redondea a un entero el resultado del punto generado aleatoriamente en el borde izquierdo (xMin)
+                randomPoint = new Vector2(Mathf.RoundToInt(rect.xMin),
+                                          Mathf.RoundToInt(Random.Range(rect.yMin, rect.yMax)));
+                break;
+            case 2:
+                // Se redondea a un entero el resultado del punto generado aleatoriamente en el borde inferior (yMin)
+                randomPoint = new Vector2(Mathf.RoundToInt(Random.Range(rect.xMin, rect.xMax)),
+                                          Mathf.RoundToInt(rect.yMin));
+                break;
+            case 3:
+                // Se redondea a un entero el resultado del punto generado aleatoriamente en el borde derecho (xMax)
+                randomPoint = new Vector2(Mathf.RoundToInt(rect.xMax),
+                                          Mathf.RoundToInt(Random.Range(rect.yMin, rect.yMax)));
+                break;
+        }
+
+        // Devuelve el punto generado
+        return randomPoint;
+    }
+}
