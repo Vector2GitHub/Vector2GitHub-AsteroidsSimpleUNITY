@@ -1,0 +1,53 @@
+using UnityEngine;
+
+public class SalirDeLaPantallaScr : MonoBehaviour
+//Este script hay que ponerlo en cualquier objeto que queramos
+// que cuando sale de la pantalla aparezca por el otro lado.
+// (Para ahorrar recursos, no tendrá en cuenta el cambio de tamaño de cámara
+// si se produce luego de que el objeto se ha instanciado.)
+{
+    private float halfWidth;//Aquí se guardará el ancho de escena que veremos en la cámara al iniciar el juego.
+    private float halfHeight;//Aquí se guardará el alto de escena que veremos en la cámara al iniciar el juego.
+    private Vector3 position;//Aquí se guardará la posición del objeto que contenga este script, para calcular
+                            //contínuamente si ha salido de los límites.
+    private float offset=0.2f;//Con esto, evitamos que un asteroide que acaba de transportarse 
+                              //de un borde al otro, vuelva al anterior.
+    private void Start()
+    {
+        ObtenerLimitesDeLaEscena();
+    }
+    void ObtenerLimitesDeLaEscena()//Guarda los límites de la escena para comprobar si se sale de estos.
+    {
+        //obtenemos el límite horizontal de la escena:       //Otra forma sería:
+        halfWidth = ContrAstSimpleScr.CONTROL.rect.xMax; //Camera.main.aspect * Camera.main.orthographicSize;
+        //obtenemos el límite vertical de la escena:         //Otra forma sería:
+        halfHeight = ContrAstSimpleScr.CONTROL.rect.yMax;//Camera.main.orthographicSize;
+    }
+
+    private void Update()
+    {   
+        position = transform.position;
+        
+
+        if (position.x < -halfWidth)
+        {
+            position.x = halfWidth-offset;
+        }
+        else if (position.x > halfWidth)
+        {
+            position.x = -halfWidth+offset;
+        }
+
+        if (position.y < -halfHeight)
+        {
+            position.y = halfHeight-offset;
+        }
+        else if (position.y > halfHeight)
+        {
+            position.y = -halfHeight+offset;
+        }
+        //Si detectamos que la posición del objeto sale de alguno de los límites, 
+        //el objeto se teletransportará al lado contrario de la pantalla.
+        transform.position = position;
+    }
+}
